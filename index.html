@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+    <!-- Reveal JS presentation, see license at end -->
+    <head>
+        <meta charset="utf-8">
+
+        <title>The London Django Meetup Group</title>
+
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+
+        <link rel="stylesheet" href="/css/reveal.css">
+        <link rel="stylesheet" href="/css/theme/django.css" id="theme">
+
+        <link rel="stylesheet" href="/lib/css/zenburn.css">
+
+        <!-- Printing and PDF exports -->
+        <script>
+            var link = document.createElement( 'link' );
+            link.rel = 'stylesheet';
+            link.type = 'text/css';
+            link.href = window.location.search.match( /print-pdf/gi ) ? '/css/print/pdf.css' : '/css/print/paper.css';
+            document.getElementsByTagName( 'head' )[0].appendChild( link );
+        </script>
+
+        <!--[if lt IE 9]>
+        <script src="/lib/js/html5shiv.js"></script>
+        <![endif]-->
+    </head>
+
+    <body>
+        <div class="reveal">
+            <div class="slides">
+
+<!-- start presentation -->
+
+<section>
+    <h1>Introducing <br> <code>django-perf-rec</code></h1>
+    <h2>October 11th 2016</h2>
+</section>
+
+<section>
+    <h2>What is it?</h2>
+    <ul>
+        <li>Performance regression testing tool</li>
+        <li>Open sourced at the PyCon UK sprints</li>
+        <li>Used internally at YPlan for 2 years now</li>
+    </ul>
+</section>
+
+<section>
+    <h2>History</h2>
+    <ul>
+        <li>Lots of tests with <code>assertNumQueries</code>:</li>
+    </ul>
+    <pre><code data-trim>
+def test_home(self):
+    with self.assertNumQueries(4):
+        self.client.get('/')
+    </code></pre>
+</section>
+
+<section>
+    <h2>History</h2>
+    <ul>
+        <li><em>Which</em> queries? Added comments:</li>
+    </ul>
+    <pre><code data-trim>
+def test_home(self):
+    with self.assertNumQueries(4):
+        # get User
+        # get trending Events
+        # prefetch Groups
+        # update Metrics
+        self.client.get('/')
+    </code></pre>
+</section>
+
+<section>
+    <h2>History</h2>
+    <ul>
+        <li>Weird failures where the comments don't line up with reality...</li>
+        <li>Cache hits not captured :(</li>
+    </ul>
+    <pre><code data-trim>
+def test_home(self):
+    with self.assertNumQueries(4):
+        # get User
+        # get trending Events
+        # prefetch Groups <-- refactored to a different query!
+        # update Metrics
+        self.client.get('/')  # still doing 100s of cache hits!
+    </code></pre>
+</section>
+
+<section>
+    <img src="/img/philosoraptor.jpg" alt="There must be a better way">
+</section>
+
+<section>
+    <h2>Now...</h2>
+    <p>Test:</p>
+    <pre><code data-trim>
+def test_home(self):
+    with django_perf_rec.record():
+        self.client.get('/')
+    </code></pre>
+
+    <p>Automatically recorded <code>test_file.perf.yml</code>:</p>
+
+    <pre><code data-trim>
+MyTests.test_home:
+- cache|get: home_data
+- db: 'SELECT ... FROM myapp_table WHERE (myapp_table.id = #)'
+- db: 'SELECT ... FROM myapp_table WHERE (myapp_table.id = #)'
+    </code></pre>
+
+</section>
+
+<section>
+    <h2>How it works</h2>
+    <ul>
+        <li>First run creates record file</li>
+        <li>Future runs fail if they don't match record file</li>
+        <li>SQL and cache keys 'fingerprinted', e.g.:</li>
+    </ul>
+    <pre><code data-trim>
+SELECT id, foo, bar FROM myapp_table WHERE (myapp_table.id = 1)
+# fingerprinted down to:
+SELECT ... FROM myapp_table WHERE (myapp_table.id = #)
+    </code></pre>
+</section>
+
+<section>
+    <h2>How we use it</h2>
+    <ul>
+        <li>Currently <strong>83</strong> invocations, in >100 tests</li>
+        <li>Manually written API endpoint tests</li>
+        <li>Auto-generated tests for admin pages with <code>nose-parameterized</code></li>
+    </ul>
+</section>
+
+<section>
+    <h2>“Fix performance problems at code review time”</h2>
+    <img src="/img/test-all-the-things.jpg" alt="Test all the things">
+</section>
+
+<section>
+    <h2>Thank you</h2>
+    <ul>
+        <li><code>https://github.com/YPlan/django-perf-rec</code></li>
+        <li><code>https://github.com/adamchainz</code></li>
+    </ul>
+</section>
+
+
+<!-- end presentation -->
+
+            </div>
+        </div>
+
+        <script src="/lib/js/head.min.js"></script>
+        <script src="/js/reveal.js"></script>
+
+        <script>
+
+            // Full list of configuration options available at:
+            // https://github.com/hakimel/reveal.js#configuration
+            Reveal.initialize({
+                controls: true,
+                progress: true,
+                history: true,
+                center: true,
+
+                transition: 'slide', // none/fade/slide/convex/concave/zoom
+
+                // Optional reveal.js plugins
+                dependencies: [
+                    { src: '/plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } }
+                ]
+            });
+
+        </script>
+
+    </body>
+</html>
+
+<!--
+Reveal JS is:
+
+Copyright (C) 2015 Hakim El Hattab, http://hakim.se
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+ -->
